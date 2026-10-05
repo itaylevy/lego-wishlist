@@ -53,6 +53,77 @@ function EmptyShelf({ kind }: { kind: "owned" | "wanted" }) {
   );
 }
 
+const STORES = [
+  {
+    name: "חנויות לגו רשמיות",
+    details: "סניפי ביג אשדוד / סינמה סיטי",
+    tag: "חנות רשמית",
+    color: "red",
+    icon: "👑",
+  },
+  {
+    name: "שופרסל / יוניברס",
+    details: "סניפי רשת שופרסל ויוניברס",
+    tag: "סופרמרקטים",
+    color: "blue",
+    icon: "🛒",
+  },
+  {
+    name: "עידן 2000",
+    details: "רשת חנויות הצעצועים",
+    tag: "רשת צעצועים",
+    color: "yellow",
+    icon: "🧸",
+  },
+  {
+    name: "KSP",
+    details: "בהזמנה מראש (סניפים / אונליין)",
+    tag: "הזמנה מראש",
+    color: "green",
+    icon: "📦",
+  },
+  {
+    name: "אושר עד",
+    details: "סניפי ראשון לציון / אשדוד / כנות",
+    tag: "סניפים נבחרים",
+    color: "pink",
+    icon: "🏬",
+  },
+  {
+    name: "סופר-פארם אונליין",
+    details: "באתר האינטרנט של סופר-פארם",
+    tag: "קנייה ברשת",
+    color: "purple",
+    icon: "🌐",
+  },
+];
+
+function StoresSection() {
+  return (
+    <section className="stores-section" aria-labelledby="stores-title">
+      <div className="section-heading">
+        <div>
+          <span className="mini-label yellow-label">איפה קונים?</span>
+          <h2 id="stores-title">איפה ניתן למצוא לגו?</h2>
+        </div>
+        <p>מקומות וחנויות מומלצות שבהם תוכלו למצוא את הערכות שאריאל רוצה:</p>
+      </div>
+      <div className="stores-grid">
+        {STORES.map((store, i) => (
+          <div key={i} className={`store-card ${store.color}`}>
+            <span className="store-icon" aria-hidden="true">{store.icon}</span>
+            <div className="store-info">
+              <span className="store-tag">{store.tag}</span>
+              <h3>{store.name}</h3>
+              <p>{store.details}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function Home({ searchParams }: PageProps<"/">) {
   const queryValue = (await searchParams).q;
   const query = typeof queryValue === "string" ? queryValue.trim() : "";
@@ -122,6 +193,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         {wanted.length ? <div className="set-grid">{wanted.map((set) => <SetCard key={set.id} set={set} wanted />)}</div> : <EmptyShelf kind="wanted" />}
       </section>
 
+      <StoresSection />
+
       <section className="collection-section" aria-labelledby="owned-title">
         <div className="section-heading">
           <div><span className="mini-label blue-label">האוסף שלי</span><h2 id="owned-title">כבר נבנו ואהובים</h2></div>
@@ -138,4 +211,5 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     </main>
   );
 }
+
 
