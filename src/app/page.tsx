@@ -124,6 +124,89 @@ function StoresSection() {
   );
 }
 
+function SearchResultCard({
+  query,
+  found,
+  apiSet,
+}: {
+  query: string;
+  found?: LegoSet;
+  apiSet?: { name: string; imageUrl: string | null; year: number | null; pieceCount: number | null; legoUrl: string } | null;
+}) {
+  if (found) {
+    const isOwned = found.status === "owned";
+    return (
+      <div className={`search-preview-card ${isOwned ? "status-owned" : "status-wanted"}`} role="status">
+        <div className="preview-badge-row">
+          <span className={`status-pill ${isOwned ? "pill-owned" : "pill-wanted"}`}>
+            {isOwned ? "✓ אריאל כבר מחזיק בערכה זו!" : `★ נמצא ברשימת המשאלות של אריאל! (עדיפות #${found.wishlistRank})`}
+          </span>
+        </div>
+        <div className="preview-body">
+          <div className="preview-image-wrap">
+            {found.imageUrl ? (
+              <Image src={found.imageUrl} alt={found.name} width={180} height={140} className="preview-image" />
+            ) : (
+              <div className="preview-placeholder">🧩</div>
+            )}
+          </div>
+          <div className="preview-info">
+            <span className="preview-sku">ערכה {found.sku.replace(/-1$/, "")}</span>
+            <h3>{found.name}</h3>
+            <div className="preview-meta">
+              {found.year ? <span>שנת {found.year}</span> : null}
+              {found.pieceCount ? <span>{found.pieceCount.toLocaleString()} חלקים</span> : null}
+            </div>
+            <p className="preview-desc">
+              {isOwned
+                ? "אריאל כבר קיבל ובנה את הערכה הזו — אין צורך לקנות אותה שוב."
+                : "מתנה מעולה! הערכה הזו מופיעה ברשימת המשאלות שאריאל הכי רוצה לקבל."}
+            </p>
+            <a href={found.legoUrl} target="_blank" rel="noreferrer" className="preview-link">
+              צפייה ב-LEGO.com <span aria-hidden="true">↖</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="search-preview-card status-missing" role="status">
+      <div className="preview-badge-row">
+        <span className="status-pill pill-missing">
+          🎁 לא מופיע ברשימות של אריאל — רעיון מעולה למתנה!
+        </span>
+      </div>
+      <div className="preview-body">
+        <div className="preview-image-wrap">
+          {apiSet?.imageUrl ? (
+            <Image src={apiSet.imageUrl} alt={apiSet.name} width={180} height={140} className="preview-image" />
+          ) : (
+            <div className="preview-placeholder">🎁</div>
+          )}
+        </div>
+        <div className="preview-info">
+          <span className="preview-sku">ערכה {query.replace(/-1$/, "")}</span>
+          <h3>{apiSet ? apiSet.name : `ערכה מספר ${query}`}</h3>
+          <div className="preview-meta">
+            {apiSet?.year ? <span>שנת {apiSet.year}</span> : null}
+            {apiSet?.pieceCount ? <span>{apiSet.pieceCount.toLocaleString()} חלקים</span> : null}
+          </div>
+          <p className="preview-desc">
+            ערכה זו אינה מופיעה באוסף של אריאל וגם לא ברשימת המשאלות. זוהי אפשרות מצוינת להפתיע אותו במתנה חדשה!
+          </p>
+          {apiSet?.legoUrl ? (
+            <a href={apiSet.legoUrl} target="_blank" rel="noreferrer" className="preview-link">
+              צפייה ב-LEGO.com <span aria-hidden="true">↖</span>
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default async function Home({ searchParams }: PageProps<"/">) {
   const queryValue = (await searchParams).q;
   const query = typeof queryValue === "string" ? queryValue.trim() : "";
@@ -134,6 +217,28 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const found = normalizedQuery
     ? sets.find((set) => set.sku === normalizedQuery || set.sku.replace(/-1$/, "") === query.replace(/-1$/, ""))
     : undefined;
+
+  let searchedApiSet: { name: string; imageUrl: string | null; year: number | null; pieceCount: number | null; legoUrl: string } | null = null;
+  if (query && !found && process.env.REBRICKABLE_API_KEY) {
+    try {
+      const res = await fetch(`https://rebrickable.com/api/v3/lego/sets/${encodeURIComponent(normalizedQuery)}/`, {
+        headers: { Authorization: `key ${process.env.REBRICKABLE_API_KEY}` },
+        cache: "force-cache",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        searchedApiSet = {
+          name: data.name,
+          imageUrl: data.set_img_url,
+          year: data.year,
+          pieceCount: data.num_parts,
+          legoUrl: `https://www.lego.com/en-il/search?q=${encodeURIComponent(query.replace(/-1$/, ""))}`,
+        };
+      }
+    } catch {
+      // fallback
+    }
+  }
 
   return (
     <main>
@@ -167,18 +272,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <input id="set-search" name="q" defaultValue={query} placeholder="הכניסו מספר ערכה, למשל 40783" inputMode="numeric" />
           <button type="submit">בדיקת ערכה</button>
         </form>
-        {query ? (
-          <div className={`search-result ${found ? found.status : "missing"}`} role="status">
-            <span className="result-icon">{found ? (found.status === "owned" ? "✓" : "★") : "?"}</span>
-            <div>
-              {found ? (
-                <><strong>{found.name}</strong><p>{found.status === "owned" ? "אריאל כבר מחזיק בערכה זו!" : "ערכה זו נמצאת ברשימת המשאלות של אריאל!"}</p></>
-              ) : (
-                <><strong>ערכה {query} אינה מופיעה באף רשימה</strong><p>אפשרות מצוינת למתנה חדשה!</p></>
-              )}
-            </div>
-          </div>
-        ) : null}
+        {query ? <SearchResultCard query={query} found={found} apiSet={searchedApiSet} /> : null}
       </section>
 
       {!configured ? (
@@ -211,5 +305,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     </main>
   );
 }
+
 
 
