@@ -15,13 +15,13 @@ function SetCard({ set, wanted = false }: { set: LegoSet; wanted?: boolean }) {
   return (
     <article className="set-card">
       {wanted && set.wishlistRank > 0 ? (
-        <span className="rank-badge" aria-label={`Wishlist priority ${set.wishlistRank}`}>
+        <span className="rank-badge" aria-label={`עדיפות ברשימה ${set.wishlistRank}`}>
           #{set.wishlistRank}
         </span>
       ) : null}
       <div className="set-image-wrap">
         {set.imageUrl ? (
-          <Image src={set.imageUrl} alt={`${set.name} LEGO set`} width={560} height={420} className="set-image" />
+          <Image src={set.imageUrl} alt={`ערכת לגו ${set.name}`} width={560} height={420} className="set-image" />
         ) : (
           <div className="image-placeholder" aria-hidden="true">
             <span>●</span><span>●</span><span>●</span><span>●</span>
@@ -29,14 +29,14 @@ function SetCard({ set, wanted = false }: { set: LegoSet; wanted?: boolean }) {
         )}
       </div>
       <div className="set-card-body">
-        <div className="sku">SET {set.sku.replace(/-1$/, "")}</div>
+        <div className="sku">ערכה {set.sku.replace(/-1$/, "")}</div>
         <h3>{set.name}</h3>
         <div className="set-meta">
-          {set.year ? <span>{set.year}</span> : null}
-          {set.pieceCount ? <span>{set.pieceCount.toLocaleString()} pieces</span> : null}
+          {set.year ? <span>שנת {set.year}</span> : null}
+          {set.pieceCount ? <span>{set.pieceCount.toLocaleString()} חלקים</span> : null}
         </div>
         <a className="lego-link" href={set.legoUrl} target="_blank" rel="noreferrer">
-          View on LEGO.com <span aria-hidden="true">↗</span>
+          צפייה ב-LEGO.com <span aria-hidden="true">↖</span>
         </a>
       </div>
     </article>
@@ -47,8 +47,8 @@ function EmptyShelf({ kind }: { kind: "owned" | "wanted" }) {
   return (
     <div className="empty-shelf">
       <div className="empty-bricks" aria-hidden="true"><span /><span /><span /></div>
-      <h3>{kind === "owned" ? "The collection shelf is ready" : "The wish shelf is ready"}</h3>
-      <p>Add the first set from the managing panel.</p>
+      <h3>{kind === "owned" ? "מדף האוסף מוכן" : "מדף המשאלות מוכן"}</h3>
+      <p>ניתן להוסיף את הערכה הראשונה דרך פאנל הניהול.</p>
     </div>
   );
 }
@@ -67,18 +67,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   return (
     <main>
       <header className="site-header">
-        <Link href="/" className="brand" aria-label="Ariel's LEGO Wishlist home">
+        <Link href="/" className="brand" aria-label="רשימת הלגו של אריאל - דף הבית">
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>
-          <span><strong>Ariel&apos;s</strong><small>LEGO WISHLIST</small></span>
+          <span><strong>אריאל</strong><small>רשימת LEGO</small></span>
         </Link>
-        <Link href="/admin" className="admin-link">Manage sets <span aria-hidden="true">→</span></Link>
+        <Link href="/admin" className="admin-link">ניהול ערכות <span aria-hidden="true">←</span></Link>
       </header>
 
       <section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow">A BRICK-BY-BRICK ADVENTURE</span>
-          <h1>Find the next<br /><em>great build.</em></h1>
-          <p>Search Ariel&apos;s collection, explore the most-wanted sets, and make every gift a perfect fit.</p>
+          <span className="eyebrow">הרפתקה לבנה אחר לבנה</span>
+          <h1>הערכות שאריאל<br /><em>הכי רוצה לבנות.</em></h1>
+          <p>מחפשים באוסף של אריאל, מגלים את הערכות בראש הרשימה, ובוחרים את המתנה המושלמת.</p>
         </div>
         <div className="brick-scene" aria-hidden="true">
           <span className="brick red b1"><i /><i /><i /><i /></span>
@@ -89,21 +89,21 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       </section>
 
       <section className="search-section" aria-labelledby="search-title">
-        <div><span className="mini-label">QUICK CHECK</span><h2 id="search-title">Does Ariel have it?</h2></div>
+        <div><span className="mini-label">בדיקה מהירה</span><h2 id="search-title">יש כבר לאריאל?</h2></div>
         <form className="search-form" action="/" method="get">
           <SearchIcon />
-          <label className="sr-only" htmlFor="set-search">LEGO set number</label>
-          <input id="set-search" name="q" defaultValue={query} placeholder="Enter a set number, e.g. 40783" inputMode="numeric" />
-          <button type="submit">Check set</button>
+          <label className="sr-only" htmlFor="set-search">מספר ערכת לגו</label>
+          <input id="set-search" name="q" defaultValue={query} placeholder="הכניסו מספר ערכה, למשל 40783" inputMode="numeric" />
+          <button type="submit">בדיקת ערכה</button>
         </form>
         {query ? (
           <div className={`search-result ${found ? found.status : "missing"}`} role="status">
             <span className="result-icon">{found ? (found.status === "owned" ? "✓" : "★") : "?"}</span>
             <div>
               {found ? (
-                <><strong>{found.name}</strong><p>{found.status === "owned" ? "Ariel already owns this set." : "This set is on Ariel’s wishlist!"}</p></>
+                <><strong>{found.name}</strong><p>{found.status === "owned" ? "אריאל כבר מחזיק בערכה זו!" : "ערכה זו נמצאת ברשימת המשאלות של אריאל!"}</p></>
               ) : (
-                <><strong>Set {query} is not on either list</strong><p>It may be a brand-new gift idea.</p></>
+                <><strong>ערכה {query} אינה מופיעה באף רשימה</strong><p>אפשרות מצוינת למתנה חדשה!</p></>
               )}
             </div>
           </div>
@@ -111,30 +111,31 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       </section>
 
       {!configured ? (
-        <aside className="setup-note"><strong>Ready for your collection.</strong> Connect a database and add the deployment secrets described in the README, then use the managing panel to add sets.</aside>
+        <aside className="setup-note"><strong>מוכן לאוסף שלכם.</strong> יש לחבר מסד נתונים (DATABASE_URL) ולהגדיר את מפתחות הסביבה, ולאחר מכן להשתמש בפאנל הניהול כדי להוסיף ערכות.</aside>
       ) : null}
 
       <section className="collection-section wanted-section" aria-labelledby="wanted-title">
         <div className="section-heading">
-          <div><span className="mini-label pink">TOP PICKS</span><h2 id="wanted-title">Most wanted</h2></div>
-          <p>The sets at the very top of Ariel&apos;s list.</p>
+          <div><span className="mini-label pink">הכי מבוקש</span><h2 id="wanted-title">הכי רוצה</h2></div>
+          <p>הערכות שנמצאות בראש הרשימה של אריאל.</p>
         </div>
         {wanted.length ? <div className="set-grid">{wanted.map((set) => <SetCard key={set.id} set={set} wanted />)}</div> : <EmptyShelf kind="wanted" />}
       </section>
 
       <section className="collection-section" aria-labelledby="owned-title">
         <div className="section-heading">
-          <div><span className="mini-label blue-label">THE COLLECTION</span><h2 id="owned-title">Already built & loved</h2></div>
-          <div className="count-pill">{owned.length} {owned.length === 1 ? "set" : "sets"}</div>
+          <div><span className="mini-label blue-label">האוסף שלי</span><h2 id="owned-title">כבר נבנו ואהובים</h2></div>
+          <div className="count-pill">{owned.length} {owned.length === 1 ? "ערכה" : "ערכות"}</div>
         </div>
         {owned.length ? <div className="set-grid">{owned.map((set) => <SetCard key={set.id} set={set} />)}</div> : <EmptyShelf kind="owned" />}
       </section>
 
       <footer>
         <div className="footer-bricks" aria-hidden="true"><span /><span /><span /><span /><span /></div>
-        <p>Built with love for Ariel <span>♥</span></p>
-        <small>This is an unofficial family wishlist and is not affiliated with the LEGO Group.</small>
+        <p>נבנה באהבה עבור אריאל <span>♥</span></p>
+        <small>זהו אתר משאלות משפחתי פרטי ואינו קשור לקבוצת LEGO.</small>
       </footer>
     </main>
   );
 }
+
