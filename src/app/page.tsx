@@ -21,7 +21,8 @@ function SetCard({ set, wanted = false }: { set: LegoSet; wanted?: boolean }) {
       ) : null}
       <div className="set-image-wrap">
         {set.imageUrl ? (
-          <Image src={set.imageUrl} alt={`ערכת לגו ${set.name}`} width={560} height={420} className="set-image" />
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={set.imageUrl} alt={`ערכת לגו ${set.name}`} className="set-image" />
         ) : (
           <div className="image-placeholder" aria-hidden="true">
             <span>●</span><span>●</span><span>●</span><span>●</span>
@@ -145,7 +146,8 @@ function SearchResultCard({
         <div className="preview-body">
           <div className="preview-image-wrap">
             {found.imageUrl ? (
-              <Image src={found.imageUrl} alt={found.name} width={180} height={140} className="preview-image" />
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={found.imageUrl} alt={found.name} className="preview-image" />
             ) : (
               <div className="preview-placeholder">🧩</div>
             )}
@@ -181,7 +183,8 @@ function SearchResultCard({
       <div className="preview-body">
         <div className="preview-image-wrap">
           {apiSet?.imageUrl ? (
-            <Image src={apiSet.imageUrl} alt={apiSet.name} width={180} height={140} className="preview-image" />
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={apiSet.imageUrl} alt={apiSet.name} className="preview-image" />
           ) : (
             <div className="preview-placeholder">🎁</div>
           )}
@@ -206,6 +209,7 @@ function SearchResultCard({
     </div>
   );
 }
+
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const queryValue = (await searchParams).q;
