@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getCollection, normalizeSku, type LegoSet } from "@/lib/data";
+import { getStorePricesForSku, type StorePriceResult } from "@/lib/prices";
 
 function SearchIcon() {
   return (
@@ -11,7 +12,52 @@ function SearchIcon() {
   );
 }
 
-function SetCard({ set, wanted = false }: { set: LegoSet; wanted?: boolean }) {
+function StorePricesWidget({ prices, title = "מחירים ברשתות:" }: { prices?: StorePriceResult[]; title?: string }) {
+  if (!prices || prices.length === 0) return null;
+
+  const validPrices = prices.filter((p) => p.price !== null).map((p) => p.price as number);
+  const lowestPrice = validPrices.length > 0 ? Math.min(...validPrices) : null;
+
+  return (
+    <div className="store-prices-widget">
+      <div className="store-prices-title">
+        <span>🏷️ {title}</span>
+      </div>
+      <div className="store-prices-list">
+        {prices.map((st) => {
+          const isLowest = lowestPrice !== null && st.price === lowestPrice && validPrices.length > 1;
+          return (
+            <div key={st.storeId} className={`store-price-row ${st.color}`}>
+              <div className="store-price-info">
+                <span className="store-price-icon" aria-hidden="true">{st.storeIcon}</span>
+                <span className="store-name">{st.storeName}</span>
+              </div>
+              <div className="store-price-action">
+                {st.price !== null ? (
+                  <span className="store-price-val">
+                    {st.formattedPrice}
+                    {isLowest ? <span className="store-price-tag">הזול ביותר!</span> : null}
+                  </span>
+                ) : null}
+                <a
+                  href={st.searchUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="store-price-link"
+                  title={`צפייה באתר ${st.storeName}`}
+                >
+                  {st.price !== null ? "לרכישה ↖" : "בדוק באתר ↖"}
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SetCard({ set, wanted = false, prices }: { set: LegoSet; wanted?: boolean; prices?: StorePriceResult[] }) {
   return (
     <article className="set-card">
       {wanted && set.wishlistRank > 0 ? (
@@ -36,6 +82,11 @@ function SetCard({ set, wanted = false }: { set: LegoSet; wanted?: boolean }) {
           {set.year ? <span>שנת {set.year}</span> : null}
           {set.pieceCount ? <span>{set.pieceCount.toLocaleString()} חלקים</span> : null}
         </div>
+
+        {wanted && prices && prices.length > 0 ? (
+          <StorePricesWidget prices={prices} title="מחירים ברשתות:" />
+        ) : null}
+
         <a className="lego-link" href={set.legoUrl} target="_blank" rel="noreferrer">
           צפייה ב-LEGO.com <span aria-hidden="true">↖</span>
         </a>
@@ -129,10 +180,12 @@ function SearchResultCard({
   query,
   found,
   apiSet,
+  prices,
 }: {
   query: string;
   found?: LegoSet;
   apiSet?: { name: string; imageUrl: string | null; year: number | null; pieceCount: number | null; legoUrl: string } | null;
+  prices?: StorePriceResult[];
 }) {
   if (found) {
     const isOwned = found.status === "owned";
@@ -164,6 +217,11 @@ function SearchResultCard({
                 ? "אריאל כבר קיבל ובנה את הערכה הזו — אין צורך לקנות אותה שוב."
                 : "מתנה מעולה! הערכה הזו מופיעה ברשימת המשאלות שאריאל הכי רוצה לקבל."}
             </p>
+
+            {!isOwned && prices && prices.length > 0 ? (
+              <StorePricesWidget prices={prices} title="מחירי ערכה זו ברשתות (LEGO, KSP, שופרסל):" />
+            ) : null}
+
             <a href={found.legoUrl} target="_blank" rel="noreferrer" className="preview-link">
               צפייה ב-LEGO.com <span aria-hidden="true">↖</span>
             </a>
@@ -199,6 +257,11 @@ function SearchResultCard({
           <p className="preview-desc">
             ערכה זו אינה מופיעה באוסף של אריאל וגם לא ברשימת המשאלות. זוהי אפשרות מצוינת להפתיע אותו במתנה חדשה!
           </p>
+
+          {prices && prices.length > 0 ? (
+            <StorePricesWidget prices={prices} title="השוואת מחירים ברשתות (LEGO, KSP, שופרסל/יוניברסל):" />
+          ) : null}
+
           {apiSet?.legoUrl ? (
             <a href={apiSet.legoUrl} target="_blank" rel="noreferrer" className="preview-link">
               צפייה ב-LEGO.com <span aria-hidden="true">↖</span>
@@ -210,8 +273,7 @@ function SearchResultCard({
   );
 }
 
-
-export default async function Home({ searchParams }: PageProps<"/">) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const queryValue = (await searchParams).q;
   const query = typeof queryValue === "string" ? queryValue.trim() : "";
   const { sets, configured } = await getCollection();
@@ -242,6 +304,22 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     } catch {
       // fallback
     }
+  }
+
+  // Fetch prices for wanted sets
+  const wantedPricesMap: Record<string, StorePriceResult[]> = {};
+  if (wanted.length > 0) {
+    await Promise.all(
+      wanted.map(async (set) => {
+        wantedPricesMap[set.id] = await getStorePricesForSku(set.sku);
+      })
+    );
+  }
+
+  // Fetch prices for searched set if it's missing or wanted
+  let searchPrices: StorePriceResult[] = [];
+  if (query && (!found || found.status === "wanted")) {
+    searchPrices = await getStorePricesForSku(query);
   }
 
   return (
@@ -276,7 +354,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <input id="set-search" name="q" defaultValue={query} placeholder="הכניסו מספר ערכה, למשל 40783" inputMode="numeric" />
           <button type="submit">בדיקת ערכה</button>
         </form>
-        {query ? <SearchResultCard query={query} found={found} apiSet={searchedApiSet} /> : null}
+        {query ? <SearchResultCard query={query} found={found} apiSet={searchedApiSet} prices={searchPrices} /> : null}
       </section>
 
       {!configured ? (
@@ -288,7 +366,15 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <div><span className="mini-label pink">הכי מבוקש</span><h2 id="wanted-title">הכי רוצה</h2></div>
           <p>הערכות שנמצאות בראש הרשימה של אריאל.</p>
         </div>
-        {wanted.length ? <div className="set-grid">{wanted.map((set) => <SetCard key={set.id} set={set} wanted />)}</div> : <EmptyShelf kind="wanted" />}
+        {wanted.length ? (
+          <div className="set-grid">
+            {wanted.map((set) => (
+              <SetCard key={set.id} set={set} wanted prices={wantedPricesMap[set.id]} />
+            ))}
+          </div>
+        ) : (
+          <EmptyShelf kind="wanted" />
+        )}
       </section>
 
       <StoresSection />
@@ -309,6 +395,3 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     </main>
   );
 }
-
-
-
