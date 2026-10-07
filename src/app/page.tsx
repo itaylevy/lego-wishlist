@@ -44,9 +44,9 @@ function StorePricesWidget({ prices, title = "מחירים ברשתות:" }: { p
                   target="_blank"
                   rel="noreferrer"
                   className="store-price-link"
-                  title={`צפייה באתר ${st.storeName}`}
+                  title={`צפייה בערכה באתר ${st.storeName}`}
                 >
-                  {st.price !== null ? "לרכישה ↖" : "בדוק באתר ↖"}
+                  {st.price !== null ? "לרכישה ↖" : `צפה במחיר ב-${st.storeId === 'ksp' ? 'KSP' : 'אתר'} ↖`}
                 </a>
               </div>
             </div>
