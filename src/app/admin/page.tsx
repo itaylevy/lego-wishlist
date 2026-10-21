@@ -31,7 +31,13 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     <div className="admin-shell">
       <header className="admin-header"><div className="admin-header-inner">
         <Link href="/" className="brand"><span className="brand-mark"><i /><i /><i /><i /></span><span><strong>אריאל</strong><small>פאנל ניהול</small></span></Link>
-        <nav><Link href="/">לרשימה הציבורית</Link><form action={logout}><button className="ghost-button">התנתקות</button></form></nav>
+        <nav>
+          <a href="/api/backup" className="ghost-button" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }} title="הורד קובץ גיבוי עם כל הערכות של אריאל">
+            📥 גיבוי נתונים (JSON)
+          </a>
+          <Link href="/">לרשימה הציבורית</Link>
+          <form action={logout}><button className="ghost-button">התנתקות</button></form>
+        </nav>
       </div></header>
       <main className="admin-main">
         <div className="admin-title"><h1>ניהול רשימות הלגו</h1><p>הכניסו מספר ערכה והפרטים והתמונה הראשית יישלפו באופן אוטומטי.</p></div>
