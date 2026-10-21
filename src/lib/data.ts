@@ -142,37 +142,53 @@ export async function ensureSchema(sql: NeonQueryFunction<false, false>) {
 
   // 5. Create default admin and Ariel profile if they don't exist
   const defaultAdminId = "admin-user-default";
-  await sql`
-    INSERT INTO users (id, email, password_hash, name)
-    VALUES (${defaultAdminId}, 'admin@ariel-lego.local', 'builtin-admin', 'מנהל')
-    ON CONFLICT (id) DO NOTHING
-  `;
+  try {
+    await sql`
+      INSERT INTO users (id, email, password_hash, name)
+      VALUES (${defaultAdminId}, 'admin@ariel-lego.local', 'builtin-admin', 'מנהל')
+      ON CONFLICT DO NOTHING
+    `;
+  } catch (err) {
+    console.warn("Could not seed default admin user:", err);
+  }
 
-  await sql`
-    INSERT INTO child_profiles (id, user_id, name, slug, theme_color, bio)
-    VALUES (${DEFAULT_ARIEL_PROFILE_ID}, ${defaultAdminId}, 'אריאל', ${DEFAULT_ARIEL_SLUG}, 'yellow', 'הרפתקה לבנה אחר לבנה - הערכות שאריאל הכי רוצה לבנות!')
-    ON CONFLICT (slug) DO NOTHING
-  `;
+  try {
+    await sql`
+      INSERT INTO child_profiles (id, user_id, name, slug, theme_color, bio)
+      VALUES (${DEFAULT_ARIEL_PROFILE_ID}, ${defaultAdminId}, 'אריאל', ${DEFAULT_ARIEL_SLUG}, 'yellow', 'הרפתקה לבנה אחר לבנה - הערכות שאריאל הכי רוצה לבנות!')
+      ON CONFLICT DO NOTHING
+    `;
+  } catch (err) {
+    console.warn("Could not seed default Ariel profile:", err);
+  }
 
   // 6. Migrate any legacy unassigned sets to Ariel's profile
-  await sql`
-    UPDATE lego_sets
-    SET profile_id = ${DEFAULT_ARIEL_PROFILE_ID}
-    WHERE profile_id IS NULL OR profile_id = ''
-  `;
+  try {
+    await sql`
+      UPDATE lego_sets
+      SET profile_id = ${DEFAULT_ARIEL_PROFILE_ID}
+      WHERE profile_id IS NULL OR profile_id = ''
+    `;
+  } catch (err) {
+    console.warn("Could not update legacy unassigned sets:", err);
+  }
 
   // 7. Ensure unique constraint is scoped to (profile_id, sku)
   try {
     await sql`ALTER TABLE lego_sets DROP CONSTRAINT IF EXISTS lego_sets_sku_key`;
+  } catch {}
+  try {
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS lego_sets_profile_sku_idx ON lego_sets (profile_id, sku)`;
-  } catch {
-    // Constraint already updated
-  }
+  } catch {}
 
   schemaReady = true;
 
   // 8. Re-index Ariel's wishlist
-  await reindexWishlistForProfile(DEFAULT_ARIEL_PROFILE_ID, sql);
+  try {
+    await reindexWishlistForProfile(DEFAULT_ARIEL_PROFILE_ID, sql);
+  } catch (err) {
+    console.warn("Could not reindex default Ariel wishlist:", err);
+  }
 }
 
 function mapSetRow(row: DbSetRow): LegoSet {
