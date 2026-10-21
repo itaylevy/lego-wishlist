@@ -24,6 +24,7 @@ async function ensureSchema(sql: NeonQueryFunction<false, false>) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`;
   schemaReady = true;
+  await reindexWishlist(sql);
 }
 
 function mapRow(row: DbRow): LegoSet {
@@ -32,16 +33,70 @@ function mapRow(row: DbRow): LegoSet {
 }
 export function normalizeSku(value: string) { const trimmed = value.trim(); return trimmed.includes("-") ? trimmed : `${trimmed}-1`; }
 
-export async function getCollection(): Promise<{ sets: LegoSet[]; configured: boolean }> {
-  const sql = database();
+/**
+ * Normalizes and recalculates wishlist ranks for a list of sets.
+ * All wanted sets are sorted by their current wishlistRank and assigned consecutive ranks: 1, 2, 3, ...
+ * All owned sets are assigned wishlistRank = 0.
+ */
+export function recalculateWishlistRanks<T extends { id: string; status: SetStatus; wishlistRank: number }>(
+  sets: T[]
+): T[] {
+  const wanted = sets
+    .filter((s) => s.status === "wanted")
+    .sort((a, b) => a.wishlistRank - b.wishlistRank);
+
+  const owned = sets.filter((s) => s.status === "owned");
+
+  const rankedWanted = wanted.map((set, index) => ({
+    ...set,
+    wishlistRank: index + 1,
+  }));
+
+  const rankedOwned = owned.map((set) => ({
+    ...set,
+    wishlistRank: 0,
+  }));
+
+  return [...rankedWanted, ...rankedOwned];
+}
+
+/**
+ * Re-indexes all sets in the database to ensure:
+ * 1. All wanted sets have consecutive ranks: 1, 2, 3, ... with no gaps or duplicates.
+ * 2. All owned sets have wishlist_rank = 0.
+ */
+export async function reindexWishlist(client?: NeonQueryFunction<false, false>) {
+  const sql = client ?? database();
+  if (!sql) throw new Error("DATABASE_URL is not configured.");
+
+  // 1. Reset owned sets wishlist_rank to 0 if any were non-zero
+  await sql`UPDATE lego_sets SET wishlist_rank = 0, updated_at = NOW() WHERE status = 'owned' AND wishlist_rank != 0`;
+
+  // 2. Renumber wanted sets consecutively starting from 1 with no gaps
+  await sql`
+    WITH ranked AS (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY wishlist_rank ASC, created_at ASC, id ASC) AS new_rank
+      FROM lego_sets
+      WHERE status = 'wanted'
+    )
+    UPDATE lego_sets
+    SET wishlist_rank = ranked.new_rank, updated_at = NOW()
+    FROM ranked
+    WHERE lego_sets.id = ranked.id AND lego_sets.wishlist_rank != ranked.new_rank
+  `;
+}
+
+export async function getCollection(client?: NeonQueryFunction<false, false>): Promise<{ sets: LegoSet[]; configured: boolean }> {
+  const sql = client ?? database();
   if (!sql) return { sets: [], configured: false };
   await ensureSchema(sql);
   const rows = await sql`SELECT id, sku, name, status, image_url, lego_url, year, piece_count, wishlist_rank FROM lego_sets ORDER BY status DESC, wishlist_rank ASC, created_at DESC`;
-  return { sets: (rows as DbRow[]).map(mapRow), configured: true };
+  const sets = (rows as DbRow[]).map(mapRow);
+  return { sets: recalculateWishlistRanks(sets), configured: true };
 }
 
-export async function saveSet(set: Omit<LegoSet, "id" | "wishlistRank">) {
-  const sql = database(); if (!sql) throw new Error("DATABASE_URL is not configured."); await ensureSchema(sql);
+export async function saveSet(set: Omit<LegoSet, "id" | "wishlistRank">, client?: NeonQueryFunction<false, false>) {
+  const sql = client ?? database(); if (!sql) throw new Error("DATABASE_URL is not configured."); await ensureSchema(sql);
   const nextRankRows = set.status === "wanted"
     ? await sql`SELECT COALESCE(MAX(wishlist_rank), 0) + 1 AS next_rank FROM lego_sets WHERE status = 'wanted'`
     : [{ next_rank: 0 }];
@@ -52,20 +107,36 @@ export async function saveSet(set: Omit<LegoSet, "id" | "wishlistRank">) {
     ON CONFLICT (sku) DO UPDATE SET name = EXCLUDED.name, status = EXCLUDED.status,
       image_url = EXCLUDED.image_url, lego_url = EXCLUDED.lego_url, year = EXCLUDED.year,
       piece_count = EXCLUDED.piece_count,
-      wishlist_rank = CASE WHEN EXCLUDED.status = 'wanted' AND lego_sets.status != 'wanted' THEN ${nextRank} ELSE lego_sets.wishlist_rank END,
+      wishlist_rank = CASE
+        WHEN EXCLUDED.status = 'wanted' AND lego_sets.status != 'wanted' THEN ${nextRank}
+        WHEN EXCLUDED.status = 'owned' THEN 0
+        ELSE lego_sets.wishlist_rank
+      END,
       updated_at = NOW()`;
+  await reindexWishlist(sql);
 }
 
-export async function changeStatus(id: string, status: SetStatus) {
-  const sql = database(); if (!sql) throw new Error("DATABASE_URL is not configured."); await ensureSchema(sql);
-  if (status === "wanted") await sql`UPDATE lego_sets SET status = 'wanted', wishlist_rank = (SELECT COALESCE(MAX(wishlist_rank), 0) + 1 FROM lego_sets WHERE status = 'wanted'), updated_at = NOW() WHERE id = ${id}`;
-  else await sql`UPDATE lego_sets SET status = 'owned', wishlist_rank = 0, updated_at = NOW() WHERE id = ${id}`;
+export async function changeStatus(id: string, status: SetStatus, client?: NeonQueryFunction<false, false>) {
+  const sql = client ?? database(); if (!sql) throw new Error("DATABASE_URL is not configured."); await ensureSchema(sql);
+  if (status === "wanted") {
+    const nextRankRows = await sql`SELECT COALESCE(MAX(wishlist_rank), 0) + 1 AS next_rank FROM lego_sets WHERE status = 'wanted'`;
+    const nextRank = Number((nextRankRows[0] as { next_rank: number }).next_rank);
+    await sql`UPDATE lego_sets SET status = 'wanted', wishlist_rank = ${nextRank}, updated_at = NOW() WHERE id = ${id}`;
+  } else {
+    await sql`UPDATE lego_sets SET status = 'owned', wishlist_rank = 0, updated_at = NOW() WHERE id = ${id}`;
+  }
+  await reindexWishlist(sql);
 }
-export async function deleteSetById(id: string) {
-  const sql = database(); if (!sql) throw new Error("DATABASE_URL is not configured."); await ensureSchema(sql); await sql`DELETE FROM lego_sets WHERE id = ${id}`;
+
+export async function deleteSetById(id: string, client?: NeonQueryFunction<false, false>) {
+  const sql = client ?? database(); if (!sql) throw new Error("DATABASE_URL is not configured."); await ensureSchema(sql);
+  await sql`DELETE FROM lego_sets WHERE id = ${id}`;
+  await reindexWishlist(sql);
 }
-export async function moveWanted(id: string, direction: "up" | "down") {
-  const sql = database(); if (!sql) throw new Error("DATABASE_URL is not configured."); await ensureSchema(sql);
+
+export async function moveWanted(id: string, direction: "up" | "down", client?: NeonQueryFunction<false, false>) {
+  const sql = client ?? database(); if (!sql) throw new Error("DATABASE_URL is not configured."); await ensureSchema(sql);
+  await reindexWishlist(sql);
   const currentRows = await sql`SELECT id, wishlist_rank FROM lego_sets WHERE id = ${id} AND status = 'wanted'`;
   const current = currentRows[0] as { id: string; wishlist_rank: number } | undefined; if (!current) return;
   const neighborRows = direction === "up"
@@ -74,3 +145,4 @@ export async function moveWanted(id: string, direction: "up" | "down") {
   const neighbor = neighborRows[0] as { id: string; wishlist_rank: number } | undefined; if (!neighbor) return;
   await sql`UPDATE lego_sets SET wishlist_rank = CASE WHEN id = ${current.id} THEN ${neighbor.wishlist_rank} WHEN id = ${neighbor.id} THEN ${current.wishlist_rank} ELSE wishlist_rank END, updated_at = NOW() WHERE id IN (${current.id}, ${neighbor.id})`;
 }
+
