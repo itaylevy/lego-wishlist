@@ -103,16 +103,30 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const userId = await getCurrentUserId();
-  const adminLoggedIn = await isAdmin();
+  let userId: string | null = null;
+  let adminLoggedIn = false;
+  try {
+    userId = await getCurrentUserId();
+    adminLoggedIn = await isAdmin();
+  } catch {
+    // Auth check fallback
+  }
   const isLoggedIn = Boolean(userId || adminLoggedIn);
 
   const queryValue = (await searchParams).q;
   const query = typeof queryValue === "string" ? queryValue.trim() : "";
 
   // Ariel's showcase profile
-  const arielProfile = await getChildProfileBySlug(DEFAULT_ARIEL_SLUG);
-  const arielSets: LegoSet[] = arielProfile ? await getSetsForProfile(arielProfile.id) : [];
+  let arielProfile = null;
+  let arielSets: LegoSet[] = [];
+  try {
+    arielProfile = await getChildProfileBySlug(DEFAULT_ARIEL_SLUG);
+    if (arielProfile) {
+      arielSets = await getSetsForProfile(arielProfile.id);
+    }
+  } catch (err) {
+    console.error("Error loading Ariel showcase sets:", err);
+  }
   const arielWanted = arielSets.filter((s) => s.status === "wanted").sort((a, b) => a.wishlistRank - b.wishlistRank);
   const arielOwned = arielSets.filter((s) => s.status === "owned");
 

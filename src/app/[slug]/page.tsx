@@ -253,7 +253,12 @@ export default async function ChildPublicPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { slug } = await params;
-  const profile = await getChildProfileBySlug(slug);
+  let profile = null;
+  try {
+    profile = await getChildProfileBySlug(slug);
+  } catch (err) {
+    console.error(`Error loading profile ${slug}:`, err);
+  }
 
   if (!profile) {
     notFound();
@@ -262,7 +267,12 @@ export default async function ChildPublicPage({
   const queryValue = (await searchParams).q;
   const query = typeof queryValue === "string" ? queryValue.trim() : "";
 
-  const sets = await getSetsForProfile(profile.id);
+  let sets: LegoSet[] = [];
+  try {
+    sets = await getSetsForProfile(profile.id);
+  } catch (err) {
+    console.error(`Error loading sets for profile ${profile.id}:`, err);
+  }
   const owned = sets.filter((s) => s.status === "owned");
   const wanted = sets.filter((s) => s.status === "wanted").sort((a, b) => a.wishlistRank - b.wishlistRank);
 

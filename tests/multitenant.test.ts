@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 // @ts-ignore Node ESM native resolution requires .ts extension
-import { hashPassword, verifyPassword } from "../src/lib/auth.ts";
+import { hashPassword, verifyPassword } from "../src/lib/password.ts";
 // @ts-ignore Node ESM native resolution requires .ts extension
 import { recalculateWishlistRanks, type LegoSet, type SetStatus, type ChildProfile } from "../src/lib/data.ts";
 

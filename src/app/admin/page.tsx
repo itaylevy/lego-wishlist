@@ -22,11 +22,34 @@ function AdminRow({ set, index, count }: { set: LegoSet; index: number; count: n
   );
 }
 
-export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
-  if (!(await isAdmin())) redirect("/admin/login");
-  const { sets, configured } = await getCollection(); const query = await searchParams;
-  const error = typeof query.error === "string" ? query.error : ""; const success = typeof query.success === "string" ? query.success : "";
-  const wanted = sets.filter((set) => set.status === "wanted").sort((a,b) => a.wishlistRank - b.wishlistRank); const owned = sets.filter((set) => set.status === "owned");
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>;
+}) {
+  let adminLoggedIn = false;
+  try {
+    adminLoggedIn = await isAdmin();
+  } catch (err) {
+    console.warn("Auth check error in admin page:", err);
+  }
+  if (!adminLoggedIn) redirect("/admin/login");
+
+  let sets: LegoSet[] = [];
+  let configured = false;
+  try {
+    const res = await getCollection();
+    sets = res.sets;
+    configured = res.configured;
+  } catch (err: any) {
+    console.error("AdminPage DB error:", err);
+  }
+
+  const query = await searchParams;
+  const error = typeof query?.error === "string" ? query.error : "";
+  const success = typeof query?.success === "string" ? query.success : "";
+  const wanted = sets.filter((set) => set.status === "wanted").sort((a,b) => a.wishlistRank - b.wishlistRank);
+  const owned = sets.filter((set) => set.status === "owned");
   return (
     <div className="admin-shell">
       <header className="admin-header"><div className="admin-header-inner">

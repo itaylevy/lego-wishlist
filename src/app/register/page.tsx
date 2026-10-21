@@ -8,14 +8,22 @@ export default async function RegisterPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const userId = await getCurrentUserId();
-  const adminLoggedIn = await isAdmin();
+  let userId: string | null = null;
+  let adminLoggedIn = false;
+
+  try {
+    userId = await getCurrentUserId();
+    adminLoggedIn = await isAdmin();
+  } catch (err) {
+    console.warn("Auth check error in register page:", err);
+  }
+
   if (userId || adminLoggedIn) {
     redirect("/dashboard");
   }
 
   const query = await searchParams;
-  const error = query.error || "";
+  const error = query?.error || "";
 
   return (
     <div className="login-page">

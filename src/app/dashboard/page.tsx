@@ -10,25 +10,47 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
-  const userId = await getCurrentUserId();
-  const adminLoggedIn = await isAdmin();
+  let userId: string | null = null;
+  let adminLoggedIn = false;
+
+  try {
+    userId = await getCurrentUserId();
+    adminLoggedIn = await isAdmin();
+  } catch (authErr) {
+    console.warn("Auth check error in dashboard:", authErr);
+    redirect("/login");
+  }
 
   if (!userId && !adminLoggedIn) {
     redirect("/login");
   }
 
   const query = await searchParams;
-  const error = query.error || "";
-  const success = query.success || "";
+  let error = query?.error || "";
+  const success = query?.success || "";
 
-  let user = userId ? await getUserById(userId) : null;
-  let profiles: ChildProfile[] = userId ? await getChildProfilesForUser(userId) : [];
+  let user = null;
+  let profiles: ChildProfile[] = [];
+
+  try {
+    if (userId) {
+      user = await getUserById(userId);
+      profiles = await getChildProfilesForUser(userId);
+    }
+  } catch (dbErr: any) {
+    console.error("Dashboard database error:", dbErr);
+    error = error || "שגיאה בטעינת נתונים ממסד הנתונים: " + (dbErr?.message || "בעיית תקשורת זמנית");
+  }
 
   // If admin is logged in, ensure Ariel's profile is accessible
   if (adminLoggedIn && !profiles.some((p) => p.id === DEFAULT_ARIEL_PROFILE_ID)) {
-    const arielProfile = await getChildProfileById(DEFAULT_ARIEL_PROFILE_ID);
-    if (arielProfile) {
-      profiles.unshift(arielProfile);
+    try {
+      const arielProfile = await getChildProfileById(DEFAULT_ARIEL_PROFILE_ID);
+      if (arielProfile) {
+        profiles.unshift(arielProfile);
+      }
+    } catch (e) {
+      console.warn("Could not load Ariel profile for admin:", e);
     }
   }
 

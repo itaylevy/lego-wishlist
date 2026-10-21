@@ -8,15 +8,23 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
-  const userId = await getCurrentUserId();
-  const adminLoggedIn = await isAdmin();
+  let userId: string | null = null;
+  let adminLoggedIn = false;
+
+  try {
+    userId = await getCurrentUserId();
+    adminLoggedIn = await isAdmin();
+  } catch (err) {
+    console.warn("Auth check error in login page:", err);
+  }
+
   if (userId || adminLoggedIn) {
     redirect("/dashboard");
   }
 
   const query = await searchParams;
-  const error = query.error || "";
-  const success = query.success || "";
+  const error = query?.error || "";
+  const success = query?.success || "";
 
   return (
     <div className="login-page">

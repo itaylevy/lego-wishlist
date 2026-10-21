@@ -17,7 +17,11 @@ export const metadata: Metadata = {
   description: "אוסף הלגו של אריאל והערכות שהכי בא לו, במקום אחד.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="he"
