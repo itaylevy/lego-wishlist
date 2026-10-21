@@ -1,5 +1,5 @@
 export type StorePriceResult = {
-  storeId: "lego" | "ksp" | "shufersal";
+  storeId: "lego" | "ksp" | "shufersal" | "superpharm";
   storeName: string;
   storeIcon: string;
   color: string;
@@ -11,7 +11,7 @@ export type StorePriceResult = {
 
 const HEADERS = {
   "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
 };
 
@@ -209,13 +209,79 @@ async function fetchShufersalPrice(rawSku: string): Promise<StorePriceResult> {
 }
 
 /**
- * Fetches prices from LEGO Store Israel, KSP, and Shufersal in parallel.
+ * Fetch price from Super-Pharm Online (shop.super-pharm.co.il)
+ */
+async function fetchSuperPharmPrice(rawSku: string): Promise<StorePriceResult> {
+  const sku = cleanSku(rawSku);
+  const searchUrl = `https://shop.super-pharm.co.il/search?av=${encodeURIComponent(sku)}`;
+
+  let price: number | null = null;
+  let productUrl: string | null = null;
+
+  try {
+    const res = await fetchWithTimeout(searchUrl);
+    if (res && res.ok) {
+      const html = await res.text();
+
+      // Products are rendered inside item-box blocks
+      const blocks = html.split(/<a[^>]+class="item-box-link"/i);
+
+      for (let i = 1; i < blocks.length; i++) {
+        const block = blocks[i];
+        const hrefMatch = block.match(/^\s*href="([^"]+)"/);
+        const dataNameMatch = block.match(/data-name="([^"]+)"/);
+        const dataBrandMatch = block.match(/data-brand="([^"]+)"/);
+        const dataPriceMatch = block.match(/data-price="([^"]+)"/);
+        const dataDiscountMatch = block.match(/data-discountPrice="([^"]+)"/);
+        const titleMatch = block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);
+
+        const href = hrefMatch ? hrefMatch[1] : "";
+        const name = dataNameMatch ? dataNameMatch[1] : (titleMatch ? titleMatch[1] : "");
+        const brand = dataBrandMatch ? dataBrandMatch[1] : "";
+        const priceStr = (dataDiscountMatch && dataDiscountMatch[1]) ? dataDiscountMatch[1] : (dataPriceMatch ? dataPriceMatch[1] : null);
+
+        const isLego = brand.includes("לגו") || brand.toLowerCase().includes("lego") ||
+                      name.includes("לגו") || name.toLowerCase().includes("lego") ||
+                      href.includes("/lego/");
+
+        const skuRegex = new RegExp(`(?:^|[^0-9])${sku}(?:[^0-9]|$)`);
+        const hasSku = skuRegex.test(name) || href.includes(sku);
+
+        if (isLego && hasSku && priceStr) {
+          const parsedPrice = parseFloat(priceStr.replace(/,/g, ""));
+          if (!isNaN(parsedPrice) && parsedPrice > 0) {
+            price = parsedPrice;
+            productUrl = href.startsWith("http") ? href : `https://shop.super-pharm.co.il${href}`;
+            break;
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore fetch errors
+  }
+
+  return {
+    storeId: "superpharm",
+    storeName: "סופר-פארם אונליין",
+    storeIcon: "🌐",
+    color: "purple",
+    searchUrl: productUrl || searchUrl,
+    price,
+    formattedPrice: price ? formatNis(price) : null,
+    productUrl: productUrl || searchUrl,
+  };
+}
+
+/**
+ * Fetches prices from LEGO Store Israel, KSP, Shufersal, and Super-Pharm in parallel.
  */
 export async function getStorePricesForSku(sku: string): Promise<StorePriceResult[]> {
   const results = await Promise.allSettled([
     fetchLegoPrice(sku),
     fetchKspPrice(sku),
     fetchShufersalPrice(sku),
+    fetchSuperPharmPrice(sku),
   ]);
 
   return results.map((res, index) => {
@@ -227,12 +293,14 @@ export async function getStorePricesForSku(sku: string): Promise<StorePriceResul
       { storeId: "lego", storeName: "חנות לגו ישראל (LEGO Certified Store)", storeIcon: "👑", color: "red", price: null, formattedPrice: null },
       { storeId: "ksp", storeName: "KSP", storeIcon: "📦", color: "green", price: null, formattedPrice: null },
       { storeId: "shufersal", storeName: "יוניברסל / שופרסל", storeIcon: "🛒", color: "blue", price: null, formattedPrice: null },
+      { storeId: "superpharm", storeName: "סופר-פארם אונליין", storeIcon: "🌐", color: "purple", price: null, formattedPrice: null },
     ];
     const clean = cleanSku(sku);
     const urls = [
       `https://lego.certifiedstore.co.il/search?q=${encodeURIComponent(clean)}`,
       `https://ksp.co.il/web/cat/?search=${encodeURIComponent(clean)}`,
       `https://www.shufersal.co.il/online/he/search?q=${encodeURIComponent(clean)}`,
+      `https://shop.super-pharm.co.il/search?av=${encodeURIComponent(clean)}`,
     ];
 
     const def = defaultStores[index];

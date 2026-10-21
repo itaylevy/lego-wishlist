@@ -46,7 +46,7 @@ function StorePricesWidget({ prices, title = "מחירים ברשתות:" }: { p
                   className="store-price-link"
                   title={`צפייה בערכה באתר ${st.storeName}`}
                 >
-                  {st.price !== null ? "לרכישה ↖" : `צפה במחיר ב-${st.storeId === 'ksp' ? 'KSP' : 'אתר'} ↖`}
+                  {st.price !== null ? "לרכישה ↖" : (st.storeId === 'ksp' ? "צפה ב-KSP ↖" : "בדוק באתר ↖")}
                 </a>
               </div>
             </div>
@@ -219,7 +219,7 @@ function SearchResultCard({
             </p>
 
             {!isOwned && prices && prices.length > 0 ? (
-              <StorePricesWidget prices={prices} title="מחירי ערכה זו ברשתות (LEGO, KSP, שופרסל):" />
+              <StorePricesWidget prices={prices} title="מחירי ערכה זו ברשתות (LEGO, KSP, שופרסל, סופר-פארם):" />
             ) : null}
 
             <a href={found.legoUrl} target="_blank" rel="noreferrer" className="preview-link">
@@ -259,7 +259,7 @@ function SearchResultCard({
           </p>
 
           {prices && prices.length > 0 ? (
-            <StorePricesWidget prices={prices} title="השוואת מחירים ברשתות (LEGO, KSP, שופרסל/יוניברסל):" />
+            <StorePricesWidget prices={prices} title="השוואת מחירים ברשתות (LEGO, KSP, שופרסל, סופר-פארם):" />
           ) : null}
 
           {apiSet?.legoUrl ? (
